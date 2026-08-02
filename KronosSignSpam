@@ -12,6 +12,10 @@ local LocalPlayer = Players.LocalPlayer
 local lplr = LocalPlayer
 local SERVER_JOB_ID = game.JobId ~= "" and game.JobId or "Studio_Local_Server"
 
+-- Forward Declaration for Inputs & Globals
+local MessageInput = nil
+local SendChatMessage = nil
+
 -- ========================================================================
 -- [0] INTRO LOADING GUI (KRONOS CHAT)
 -- ========================================================================
@@ -64,7 +68,7 @@ local rotationSpeed = 120
 local borderConnection
 borderConnection = RunService.RenderStepped:Connect(function(deltaTime)
     if not CardStroke or not CardStroke.Parent then
-        borderConnection:Disconnect()
+        if borderConnection then borderConnection:Disconnect() end
         return
     end
     BorderGradientIntro.Rotation = (BorderGradientIntro.Rotation + (rotationSpeed * deltaTime)) % 360
@@ -592,7 +596,7 @@ local function EncodePlayerId(userId)
 end
 
 -- ============================================================================
--- HTTP HANDLER
+-- HTTP HANDLER (MULTI-EXECUTOR COMPATIBLE)
 -- ============================================================================
 local http_req = (syn and syn.request) or (http and http.request) or http_request or request or (Fluxus and fluxus.request)
 
@@ -927,8 +931,6 @@ StickerGrid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     StickerScroller.CanvasSize = UDim2.new(0, 0, 0, StickerGrid.AbsoluteContentSize.Y + 12)
 end)
 
-local SendChatMessage
-
 for _, stickerUrl in ipairs(baseStickers) do
     local stickerCard = Instance.new("ImageButton")
     stickerCard.Name = "StickerCard"
@@ -953,7 +955,7 @@ for _, stickerUrl in ipairs(baseStickers) do
         StickerPanel.Visible = false
         if MessageInput then
             MessageInput.Text = stickerUrl
-            SendChatMessage()
+            if SendChatMessage then SendChatMessage() end
         end
     end)
 end
@@ -1032,7 +1034,9 @@ local function PopulateTagBar()
 
         tagBtn.MouseButton1Click:Connect(function()
             if setclipboard then setclipboard(roleName) end
-            MessageInput.Text = "!role " .. LocalPlayer.Name .. " " .. roleName
+            if MessageInput then
+                MessageInput.Text = "!role " .. LocalPlayer.Name .. " " .. roleName
+            end
         end)
     end
 end
@@ -1432,14 +1436,18 @@ local function BuildContextMenu(msgData)
     end)
 
     AddContextMenuBtn("Reply", function()
-        MessageInput.Text = "@" .. (msgData.DisplayName or msgData.Username) .. " "
-        MessageInput:CaptureFocus()
+        if MessageInput then
+            MessageInput.Text = "@" .. (msgData.DisplayName or msgData.Username) .. " "
+            MessageInput:CaptureFocus()
+        end
     end)
 
     AddContextMenuBtn("Private Message", function()
         PersistentPvtPrefix = "/w " .. msgData.Username .. " "
-        MessageInput.Text = PersistentPvtPrefix
-        MessageInput:CaptureFocus()
+        if MessageInput then
+            MessageInput.Text = PersistentPvtPrefix
+            MessageInput:CaptureFocus()
+        end
     end)
 end
 
@@ -1727,8 +1735,10 @@ local function UpdateAutoCompleteOptions(filterText, prefix)
         btnCorner.Parent = btn
 
         btn.MouseButton1Click:Connect(function()
-            MessageInput.Text = prefix .. match
-            MessageInput:CaptureFocus()
+            if MessageInput then
+                MessageInput.Text = prefix .. match
+                MessageInput:CaptureFocus()
+            end
             AutoCompleteFrame.Visible = false
         end)
     end
@@ -1771,6 +1781,7 @@ end)
 -- INPUT & COMMAND DISPATCH
 -- ============================================================================
 SendChatMessage = function()
+    if not MessageInput then return end
     local rawText = MessageInput.Text
     AutoCompleteFrame.Visible = false
     if rawText == "" or rawText:match("^%s*$") then return end
