@@ -68,6 +68,7 @@ local rotationSpeed = 120
 local borderConnection
 borderConnection = RunService.RenderStepped:Connect(function(deltaTime)
     if not CardStroke or not CardStroke.Parent then
+        borderConnection:Disconnect()
         if borderConnection then borderConnection:Disconnect() end
         return
     end
@@ -306,7 +307,7 @@ local function applyRPProfile()
     local rpRemote = reFolder:WaitForChild("1RPNam1eTex1t", 5)
                   or reFolder:FindFirstChild("RPNameText")
                   or reFolder:FindFirstChild("RPName")
-   
+
     if rpRemote then
         if not lplr.Character or not lplr.Character:FindFirstChild("HumanoidRootPart") then
             lplr.CharacterAdded:Wait()
@@ -341,12 +342,12 @@ task.spawn(function()
             local brightRed = Color3.fromRGB(255, 0, 0)
             local pureWhite = Color3.fromRGB(255, 255, 255)
             local startTime = tick()
-           
+
             while true do
                 local elapsed = tick() - startTime
                 local factor = (math.sin(elapsed * frequency) + 1) / 2
                 local lerpedNameColor = brightRed:Lerp(pureWhite, factor)
-               
+
                 pcall(function()
                     colorRemote:FireServer("PickingRPNameColor", lerpedNameColor)
                     colorRemote:FireServer("PickingRPBioColor", pureWhite)
@@ -596,6 +597,7 @@ local function EncodePlayerId(userId)
 end
 
 -- ============================================================================
+-- HTTP HANDLER
 -- HTTP HANDLER (MULTI-EXECUTOR COMPATIBLE)
 -- ============================================================================
 local http_req = (syn and syn.request) or (http and http.request) or http_request or request or (Fluxus and fluxus.request)
@@ -931,6 +933,8 @@ StickerGrid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     StickerScroller.CanvasSize = UDim2.new(0, 0, 0, StickerGrid.AbsoluteContentSize.Y + 12)
 end)
 
+local SendChatMessage
+
 for _, stickerUrl in ipairs(baseStickers) do
     local stickerCard = Instance.new("ImageButton")
     stickerCard.Name = "StickerCard"
@@ -955,6 +959,7 @@ for _, stickerUrl in ipairs(baseStickers) do
         StickerPanel.Visible = false
         if MessageInput then
             MessageInput.Text = stickerUrl
+            SendChatMessage()
             if SendChatMessage then SendChatMessage() end
         end
     end)
@@ -1034,6 +1039,7 @@ local function PopulateTagBar()
 
         tagBtn.MouseButton1Click:Connect(function()
             if setclipboard then setclipboard(roleName) end
+            MessageInput.Text = "!role " .. LocalPlayer.Name .. " " .. roleName
             if MessageInput then
                 MessageInput.Text = "!role " .. LocalPlayer.Name .. " " .. roleName
             end
@@ -1436,6 +1442,8 @@ local function BuildContextMenu(msgData)
     end)
 
     AddContextMenuBtn("Reply", function()
+        MessageInput.Text = "@" .. (msgData.DisplayName or msgData.Username) .. " "
+        MessageInput:CaptureFocus()
         if MessageInput then
             MessageInput.Text = "@" .. (msgData.DisplayName or msgData.Username) .. " "
             MessageInput:CaptureFocus()
@@ -1444,6 +1452,8 @@ local function BuildContextMenu(msgData)
 
     AddContextMenuBtn("Private Message", function()
         PersistentPvtPrefix = "/w " .. msgData.Username .. " "
+        MessageInput.Text = PersistentPvtPrefix
+        MessageInput:CaptureFocus()
         if MessageInput then
             MessageInput.Text = PersistentPvtPrefix
             MessageInput:CaptureFocus()
@@ -1526,7 +1536,7 @@ local function RenderChatMessage(msgData, targetTab)
             local hue = timer % 1
             local rainbowHex = Color3.fromHSV(hue, 1, 1):ToHex()
             local displayName = msgData.DisplayName or msgData.Username or "Someone"
-            
+
             if targetTab == "GLOBAL" then
                 Label.Text = string.format("<b><font color='#%s'>%s Just Joined the Global Chat</font></b>", rainbowHex, displayName)
             else
@@ -1735,6 +1745,8 @@ local function UpdateAutoCompleteOptions(filterText, prefix)
         btnCorner.Parent = btn
 
         btn.MouseButton1Click:Connect(function()
+            MessageInput.Text = prefix .. match
+            MessageInput:CaptureFocus()
             if MessageInput then
                 MessageInput.Text = prefix .. match
                 MessageInput:CaptureFocus()
