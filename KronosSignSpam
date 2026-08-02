@@ -307,6 +307,7 @@ local function applyRPProfile()
     local rpRemote = reFolder:WaitForChild("1RPNam1eTex1t", 5)
                   or reFolder:FindFirstChild("RPNameText")
                   or reFolder:FindFirstChild("RPName")
+   
 
     if rpRemote then
         if not lplr.Character or not lplr.Character:FindFirstChild("HumanoidRootPart") then
@@ -342,11 +343,13 @@ task.spawn(function()
             local brightRed = Color3.fromRGB(255, 0, 0)
             local pureWhite = Color3.fromRGB(255, 255, 255)
             local startTime = tick()
+           
 
             while true do
                 local elapsed = tick() - startTime
                 local factor = (math.sin(elapsed * frequency) + 1) / 2
                 local lerpedNameColor = brightRed:Lerp(pureWhite, factor)
+               
 
                 pcall(function()
                     colorRemote:FireServer("PickingRPNameColor", lerpedNameColor)
@@ -1536,6 +1539,7 @@ local function RenderChatMessage(msgData, targetTab)
             local hue = timer % 1
             local rainbowHex = Color3.fromHSV(hue, 1, 1):ToHex()
             local displayName = msgData.DisplayName or msgData.Username or "Someone"
+            
 
             if targetTab == "GLOBAL" then
                 Label.Text = string.format("<b><font color='#%s'>%s Just Joined the Global Chat</font></b>", rainbowHex, displayName)
