@@ -46,6 +46,7 @@ local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
 local StarterGui = game:GetService("StarterGui")
+local Lighting = game:GetService("Lighting")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -504,7 +505,8 @@ local ScreenGui = create("ScreenGui", {
     Name = "SAIKI_MUSIC_GUI",
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    DisplayOrder = 20
 }, game:GetService("CoreGui"))
 
 if not ScreenGui.Parent then
@@ -518,6 +520,7 @@ end
 
 local Main = create("Frame", {
     Name = "Main",
+    ZIndex = 10,
 
     Size = UDim2.fromOffset(
         620,
@@ -1684,6 +1687,126 @@ local VehicleStatus = makeLabel(
 
 VehicleStatus.TextXAlignment =
     Enum.TextXAlignment.Right
+
+----------------------------------------------------------------
+-- AMBIENT BLUR / CHERRY BLOSSOM FLURRY
+----------------------------------------------------------------
+
+pcall(function()
+    local oldAmbient = game:GetService("CoreGui"):FindFirstChild("SAIKI_AMBIENT")
+    if oldAmbient then
+        oldAmbient:Destroy()
+    end
+end)
+
+pcall(function()
+    local oldAmbient = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("SAIKI_AMBIENT")
+    if oldAmbient then
+        oldAmbient:Destroy()
+    end
+end)
+
+local AmbientGui = create("ScreenGui", {
+    Name = "SAIKI_AMBIENT",
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    DisplayOrder = 10
+}, game:GetService("CoreGui"))
+
+if not AmbientGui.Parent then
+    AmbientGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local AmbientLayer = create("Frame", {
+    Name = "CherryBlossomLayer",
+    Size = UDim2.fromScale(1, 1),
+    Position = UDim2.fromScale(0, 0),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Active = false,
+    Visible = true,
+    ZIndex = 1
+}, AmbientGui)
+
+local BlurEffect = Lighting:FindFirstChild("SAIKI_GUI_BLUR")
+if not BlurEffect or not BlurEffect:IsA("BlurEffect") then
+    if BlurEffect then
+        BlurEffect:Destroy()
+    end
+    BlurEffect = Instance.new("BlurEffect")
+    BlurEffect.Name = "SAIKI_GUI_BLUR"
+    BlurEffect.Size = 0
+    BlurEffect.Parent = Lighting
+end
+
+local CHERRY_LEAVES = {
+    "rbxassetid://138495845541885",
+    "rbxassetid://98467848507036",
+    "rbxassetid://125300690495092"
+}
+
+local cherryLeaves = {}
+local cherryRandom = Random.new()
+local cherryFade = 0
+local cherryVisible = true
+
+for i = 1, 22 do
+    local leaf = create("ImageLabel", {
+        Name = "CherryLeaf_" .. tostring(i),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Size = UDim2.fromOffset(cherryRandom:NextInteger(13, 28), cherryRandom:NextInteger(13, 28)),
+        Position = UDim2.new(cherryRandom:NextNumber(0, 1), 0, cherryRandom:NextNumber(-0.20, 1), 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Image = CHERRY_LEAVES[((i - 1) % #CHERRY_LEAVES) + 1],
+        ImageTransparency = cherryRandom:NextNumber(0.08, 0.30),
+        Rotation = cherryRandom:NextNumber(0, 360),
+        ZIndex = 1,
+        Active = false
+    }, AmbientLayer)
+
+    table.insert(cherryLeaves, {
+        object = leaf,
+        x = cherryRandom:NextNumber(0, 1),
+        y = leaf.Position.Y.Scale,
+        speed = cherryRandom:NextNumber(0.045, 0.095),
+        sway = cherryRandom:NextNumber(0.012, 0.035),
+        swaySpeed = cherryRandom:NextNumber(0.8, 1.7),
+        phase = cherryRandom:NextNumber(0, math.pi * 2),
+        rotationSpeed = cherryRandom:NextNumber(-75, 75),
+        baseTransparency = cherryRandom:NextNumber(0.08, 0.30)
+    })
+end
+
+local function setAmbientVisible(visible)
+    cherryVisible = visible
+    if visible then
+        cherryFade = 0
+        AmbientLayer.Visible = true
+        for _, leafData in ipairs(cherryLeaves) do
+            leafData.object.ImageTransparency = leafData.baseTransparency
+        end
+        BlurEffect.Enabled = true
+        BlurEffect.Size = 0
+        TweenService:Create(BlurEffect, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = 16
+        }):Play()
+    else
+        cherryFade = 1
+        TweenService:Create(BlurEffect, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = 0
+        }):Play()
+        task.delay(0.45, function()
+            if not cherryVisible then
+                BlurEffect.Enabled = false
+                AmbientLayer.Visible = false
+            end
+        end)
+    end
+end
+
+setAmbientVisible(true)
 
 ----------------------------------------------------------------
 -- HIDE BUTTON
@@ -3962,12 +4085,16 @@ HideButton.Activated:Connect(
             HideButton.Text =
                 "OPEN"
 
+            setAmbientVisible(false)
+
         else
 
             Main.Visible = true
 
             HideButton.Text =
                 "SAIKI"
+
+            setAmbientVisible(true)
         end
     end
 )
@@ -3981,6 +4108,8 @@ CloseButton.Activated:Connect(
 
         HideButton.Text =
             "OPEN"
+
+        setAmbientVisible(false)
     end
 )
 
@@ -4148,6 +4277,46 @@ RunService.RenderStepped:Connect(
 
             Cover.Rotation =
                 State.coverRotation
+        end
+
+        --------------------------------------------------------
+        --------------------------------------------------------
+        -- Cherry blossom flurry
+        --------------------------------------------------------
+
+        if cherryVisible and AmbientLayer.Visible then
+            for _, leafData in ipairs(cherryLeaves) do
+                local leaf = leafData.object
+                leafData.y += leafData.speed * dt
+
+                if leafData.y > 1.12 then
+                    leafData.y = cherryRandom:NextNumber(-0.18, -0.05)
+                    leafData.x = cherryRandom:NextNumber(-0.05, 1.05)
+                    leafData.phase = cherryRandom:NextNumber(0, math.pi * 2)
+                    leafData.baseTransparency = cherryRandom:NextNumber(0.08, 0.30)
+                end
+
+                local sway = math.sin(gradientTime * leafData.swaySpeed + leafData.phase) * leafData.sway
+                local fadeNearBottom = math.clamp((leafData.y - 0.78) / 0.34, 0, 1)
+
+                leaf.Position = UDim2.new(
+                    leafData.x + sway,
+                    0,
+                    leafData.y,
+                    0
+                )
+                leaf.Rotation += leafData.rotationSpeed * dt
+                leaf.ImageTransparency = math.clamp(
+                    leafData.baseTransparency + fadeNearBottom * 0.70,
+                    0,
+                    1
+                )
+            end
+        elseif not cherryVisible then
+            cherryFade = math.min(1, cherryFade + dt * 2.4)
+            for _, leafData in ipairs(cherryLeaves) do
+                leafData.object.ImageTransparency = math.min(1, leafData.object.ImageTransparency + dt * 2.4)
+            end
         end
 
         --------------------------------------------------------
