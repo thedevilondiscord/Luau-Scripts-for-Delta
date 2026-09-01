@@ -1827,7 +1827,7 @@ local HideButton = create("ImageButton", {
         -24
     ),
 
-    Image = "rbxassetid://70808011490332",
+    Image = "rbxthumb://type=Asset&id=70808011490332&w=420&h=420",
 
     BackgroundTransparency = 1,
 
