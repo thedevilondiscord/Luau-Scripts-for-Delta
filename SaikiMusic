@@ -1812,51 +1812,36 @@ setAmbientVisible(true)
 -- HIDE BUTTON
 ----------------------------------------------------------------
 
-local HideButton = create("TextButton", {
+local HideButton = create("ImageButton", {
     Name = "HideButton",
 
     Size = UDim2.fromOffset(
-        58,
-        42
+        48,
+        48
     ),
 
     Position = UDim2.new(
         0,
-        14,
+        19,
         0.5,
-        -21
+        -24
     ),
 
-    Text = "SAIKI",
+    Image = "rbxassetid://70808011490332",
 
-    Font = Enum.Font.GothamBold,
-    TextSize = 9,
-
-    TextColor3 =
-        Color3.fromRGB(
-            65,
-            52,
-            72
-        ),
-
-    BackgroundColor3 =
-        Color3.fromRGB(
-            244,
-            222,
-            240
-        ),
-
-    BackgroundTransparency = 0.04,
+    BackgroundTransparency = 1,
 
     BorderSizePixel = 0,
 
-    AutoButtonColor = false
+    AutoButtonColor = false,
+
+    ScaleType = Enum.ScaleType.Crop
 }, ScreenGui)
 
 create("UICorner", {
     CornerRadius = UDim.new(
-        0,
-        14
+        1,
+        0
     )
 }, HideButton)
 
@@ -4082,17 +4067,11 @@ HideButton.Activated:Connect(
 
             Main.Visible = false
 
-            HideButton.Text =
-                "OPEN"
-
             setAmbientVisible(false)
 
         else
 
             Main.Visible = true
-
-            HideButton.Text =
-                "SAIKI"
 
             setAmbientVisible(true)
         end
@@ -4105,9 +4084,6 @@ CloseButton.Activated:Connect(
         hidden = true
 
         Main.Visible = false
-
-        HideButton.Text =
-            "OPEN"
 
         setAmbientVisible(false)
     end
@@ -4195,6 +4171,10 @@ RunService.RenderStepped:Connect(
 
         gradientTime += dt
         coverTime += dt
+
+        -- Slowly rotate the circular hide/show image.
+        HideButton.Rotation =
+            (HideButton.Rotation + (dt * 18)) % 360
 
         --------------------------------------------------------
         -- Animated Saiki gradient
