@@ -1,101 +1,134 @@
 --!strict
--- SaikiRechat + Novoline UI Concept (v1)
--- Focus: Novoline-inspired GUI layout, styling, and theme switching
--- Hooks provided for SaikiRechat Chat & Music systems
+-- SaikiRechat + Novoline UI (v1.2)
+-- Styled after the Novoline pill / translucent glass-dark / chip layout
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Safe GUI parent helper for executor environments
 local function getGuiParent(): Instance
-	local ok, result = pcall(function()
+	local ok, res = pcall(function()
 		return gethui and gethui() or CoreGui
 	end)
-	if ok and result then
-		return result
+	if ok and res then
+		return res
 	end
-	local playerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui")
-	return playerGui or CoreGui
+	return LocalPlayer:FindFirstChildOfClass("PlayerGui") or CoreGui
 end
 
--- Novoline-inspired theme presets
-local Themes = {
-	NovolineDark = {
-		Background = Color3.fromRGB(15, 15, 17),
-		Surface = Color3.fromRGB(24, 24, 28),
-		SurfaceElevated = Color3.fromRGB(32, 32, 38),
-		Border = Color3.fromRGB(48, 48, 58),
-		TextPrimary = Color3.fromRGB(242, 242, 247),
-		TextSecondary = Color3.fromRGB(155, 155, 168),
-		Accent = Color3.fromRGB(110, 130, 255),
+-- Novoline signature aesthetic & alternate palettes
+local NovolineThemes = {
+	Novoline = {
+		PillBg = Color3.fromRGB(16, 17, 21),
+		GlassBg = Color3.fromRGB(18, 19, 24),
+		GlassTrans = 0.16,
+		CardBg = Color3.fromRGB(25, 27, 34),
+		CardHover = Color3.fromRGB(33, 36, 46),
+		Stroke = Color3.fromRGB(255, 255, 255),
+		StrokeTrans = 0.88,
+		Accent = Color3.fromRGB(130, 145, 255),
+		AccentSoft = Color3.fromRGB(42, 47, 84),
+		Text = Color3.fromRGB(244, 246, 252),
+		Muted = Color3.fromRGB(145, 150, 168),
+		GlassBlur = 12,
 	},
-	CrimsonEdge = {
-		Background = Color3.fromRGB(15, 14, 16),
-		Surface = Color3.fromRGB(25, 20, 23),
-		SurfaceElevated = Color3.fromRGB(36, 26, 30),
-		Border = Color3.fromRGB(68, 36, 44),
-		TextPrimary = Color3.fromRGB(246, 240, 242),
-		TextSecondary = Color3.fromRGB(170, 148, 154),
-		Accent = Color3.fromRGB(225, 68, 92),
+	ObsidianPulse = {
+		PillBg = Color3.fromRGB(14, 14, 16),
+		GlassBg = Color3.fromRGB(16, 16, 20),
+		GlassTrans = 0.18,
+		CardBg = Color3.fromRGB(24, 24, 30),
+		CardHover = Color3.fromRGB(34, 34, 42),
+		Stroke = Color3.fromRGB(255, 255, 255),
+		StrokeTrans = 0.9,
+		Accent = Color3.fromRGB(94, 214, 176),
+		AccentSoft = Color3.fromRGB(24, 62, 52),
+		Text = Color3.fromRGB(242, 245, 244),
+		Muted = Color3.fromRGB(140, 152, 148),
+		GlassBlur = 10,
 	},
-	MinimalLight = {
-		Background = Color3.fromRGB(244, 245, 248),
-		Surface = Color3.fromRGB(255, 255, 255),
-		SurfaceElevated = Color3.fromRGB(235, 237, 242),
-		Border = Color3.fromRGB(210, 214, 224),
-		TextPrimary = Color3.fromRGB(20, 22, 28),
-		TextSecondary = Color3.fromRGB(95, 102, 118),
-		Accent = Color3.fromRGB(64, 98, 235),
+	VelvetRose = {
+		PillBg = Color3.fromRGB(18, 14, 18),
+		GlassBg = Color3.fromRGB(22, 16, 22),
+		GlassTrans = 0.18,
+		CardBg = Color3.fromRGB(32, 23, 32),
+		CardHover = Color3.fromRGB(44, 31, 44),
+		Stroke = Color3.fromRGB(255, 255, 255),
+		StrokeTrans = 0.89,
+		Accent = Color3.fromRGB(236, 104, 158),
+		AccentSoft = Color3.fromRGB(76, 30, 50),
+		Text = Color3.fromRGB(250, 244, 248),
+		Muted = Color3.fromRGB(168, 146, 160),
+		GlassBlur = 12,
 	},
 }
 
-local currentThemeName = "NovolineDark"
-local currentTheme = Themes[currentThemeName]
+local activeThemeName = "Novoline"
+local theme = NovolineThemes[activeThemeName]
 
--- Public bridge table for SaikiRechat systems
-local SaikiRechatUI = {
+-- SaikiRechat bridge API
+local SaikiRechat = {
 	Chat = {
-		OnSendMessage = nil :: ((text: string) -> ())?,
-		AppendMessage = nil :: ((author: string, text: string, tag: string?) -> ())?,
+		OnSend = nil :: ((msg: string) -> ())?,
+		PushMessage = nil :: ((sender: string, msg: string, badge: string?) -> ())?,
 	},
 	Music = {
-		OnTogglePlay = nil :: (() -> ())?,
-		OnSkip = nil :: (() -> ())?,
-		OnPrevious = nil :: (() -> ())?,
-		OnSeekRatio = nil :: ((ratio: number) -> ())?,
-		SetTrackInfo = nil :: ((title: string, artist: string, isPlaying: boolean) -> ())?,
-		SetProgress = nil :: ((ratio: number, timeLabel: string?) -> ())?,
+		OnToggle = nil :: (() -> ())?,
+		OnNext = nil :: (() -> ())?,
+		OnPrev = nil :: (() -> ())?,
+		OnSeek = nil :: ((alpha: number) -> ())?,
+		SetNowPlaying = nil :: ((title: string, artist: string, playing: boolean) -> ())?,
+		SetTimeline = nil :: ((alpha: number, elapsed: string, duration: string) -> ())?,
 	},
-	SetTheme = nil :: ((themeName: string) -> ())?,
+	SetTheme = nil :: ((name: string) -> ())?,
 }
 
--- Utility: make any Frame/TextButton/TextLabel/TextBox draggable
-local function makeDraggable(dragHandle: GuiObject, targetGui: GuiObject)
+local function tween(inst: Instance, props: { [string]: any }, time: number?)
+	TweenService:Create(
+		inst,
+		TweenInfo.new(time or 0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+		props
+	):Play()
+end
+
+local function round(parent: Instance, px: number)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, px)
+	c.Parent = parent
+	return c
+end
+
+local function pillRound(parent: Instance)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(1, 0)
+	c.Parent = parent
+	return c
+end
+
+local function hairStroke(parent: Instance, color: Color3, trans: number, thickness: number?)
+	local s = Instance.new("UIStroke")
+	s.Color = color
+	s.Transparency = trans
+	s.Thickness = thickness or 1
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	s.Parent = parent
+	return s
+end
+
+local function dragify(handle: GuiObject, target: GuiObject)
 	local dragging = false
-	local dragInput: InputObject? = nil
-	local dragStart = Vector3.zero
-	local startPos = targetGui.Position
+	local activeInput: InputObject? = nil
+	local origin = Vector3.zero
+	local startOffset = target.Position
 
-	local function update(input: InputObject)
-		local delta = input.Position - dragStart
-		targetGui.Position = UDim2.new(
-			startPos.X.Scale,
-			startPos.X.Offset + delta.X,
-			startPos.Y.Scale,
-			startPos.Y.Offset + delta.Y
-		)
-	end
-
-	dragHandle.InputBegan:Connect(function(input: InputObject)
+	handle.InputBegan:Connect(function(input: InputObject)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			dragging = true
-			dragStart = input.Position
-			startPos = targetGui.Position
-
+			origin = input.Position
+			startOffset = target.Position
 			input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
 					dragging = false
@@ -104,586 +137,632 @@ local function makeDraggable(dragHandle: GuiObject, targetGui: GuiObject)
 		end
 	end)
 
-	dragHandle.InputChanged:Connect(function(input: InputObject)
+	handle.InputChanged:Connect(function(input: InputObject)
 		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-			dragInput = input
+			activeInput = input
 		end
 	end)
 
 	UserInputService.InputChanged:Connect(function(input: InputObject)
-		if input == dragInput and dragging then
-			update(input)
+		if dragging and input == activeInput then
+			local delta = input.Position - origin
+			target.Position = UDim2.new(
+				startOffset.X.Scale,
+				startOffset.X.Offset + delta.X,
+				startOffset.Y.Scale,
+				startOffset.Y.Offset + delta.Y
+			)
 		end
 	end)
 end
 
-local function addCorner(parent: Instance, radius: number)
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, radius)
-	corner.Parent = parent
-	return corner
+-- Clean previous instance
+local parentGui = getGuiParent()
+local prev = parentGui:FindFirstChild("SaikiRechat_Novoline_GUI")
+if prev then
+	prev:Destroy()
 end
 
-local function addStroke(parent: Instance, color: Color3, thickness: number?)
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = color
-	stroke.Thickness = thickness or 1
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.Parent = parent
-	return stroke
+-- Optional subtle depth blur while deck is open (Novoline glass feel)
+local depthBlur = Instance.new("BlurEffect")
+depthBlur.Name = "Novoline_UIBlur"
+depthBlur.Size = 0
+depthBlur.Parent = Lighting
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "SaikiRechat_Novoline_GUI"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = parentGui
+
+local rootScale = Instance.new("UIScale")
+rootScale.Parent = gui
+
+local function updateScale()
+	local cam = workspace.CurrentCamera
+	local vp = cam and cam.ViewportSize or Vector2.new(1366, 768)
+	local sx = (vp.X - 24) / 680
+	local sy = (vp.Y - 24) / 460
+	rootScale.Scale = math.clamp(math.min(sx, sy, 1), 0.65, 1)
 end
-
--- Cleanup existing instance if re-executed
-local parentTarget = getGuiParent()
-local existing = parentTarget:FindFirstChild("SaikiRechat_Novoline_v1")
-if existing then
-	existing:Destroy()
-end
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SaikiRechat_Novoline_v1"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = parentTarget
-
--- Floating Toggle Pill (Novoline quick-access button)
-local ToggleButton = Instance.new("TextButton")
-ToggleButton.Name = "FloatingToggle"
-ToggleButton.Size = UDim2.fromOffset(44, 44)
-ToggleButton.Position = UDim2.new(0, 24, 0.5, -22)
-ToggleButton.Text = "SR"
-ToggleButton.Font = Enum.Font.GothamBold
-ToggleButton.TextSize = 15
-ToggleButton.AutoButtonColor = false
-ToggleButton.Parent = ScreenGui
-addCorner(ToggleButton, 12)
-local toggleStroke = addStroke(ToggleButton, currentTheme.Border, 1)
-makeDraggable(ToggleButton, ToggleButton)
-
--- Main Window
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainWindow"
-MainFrame.Size = UDim2.fromOffset(520, 340)
-MainFrame.Position = UDim2.new(0.5, -260, 0.5, -170)
-MainFrame.Active = true
-MainFrame.ClipsDescendants = true
-MainFrame.Parent = ScreenGui
-addCorner(MainFrame, 12)
-local mainStroke = addStroke(MainFrame, currentTheme.Border, 1)
-
--- Responsive scaling for smaller/mobile viewports
-local UIScale = Instance.new("UIScale")
-UIScale.Parent = MainFrame
-
-local function refreshScale()
-	local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720)
-	local scaleX = (viewport.X - 32) / 520
-	local scaleY = (viewport.Y - 32) / 340
-	UIScale.Scale = math.clamp(math.min(scaleX, scaleY, 1), 0.65, 1)
-end
-refreshScale()
+updateScale()
 if workspace.CurrentCamera then
-	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(refreshScale)
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
 end
 
--- Top Header Bar
-local TopBar = Instance.new("Frame")
-TopBar.Name = "TopBar"
-TopBar.Size = UDim2.new(1, 0, 0, 42)
-TopBar.BorderSizePixel = 0
-TopBar.Parent = MainFrame
-makeDraggable(TopBar, MainFrame)
+-- ================= NOVOLINE FLOATING TOP PILL =================
+local TopPill = Instance.new("Frame")
+TopPill.Name = "NovolineTopPill"
+TopPill.Size = UDim2.fromOffset(420, 40)
+TopPill.Position = UDim2.new(0.5, -210, 0, 18)
+TopPill.BorderSizePixel = 0
+TopPill.Parent = gui
+pillRound(TopPill)
+local topPillStroke = hairStroke(TopPill, theme.Stroke, theme.StrokeTrans, 1)
+dragify(TopPill, TopPill)
 
-local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Size = UDim2.new(0.6, -16, 1, 0)
-TitleLabel.Position = UDim2.fromOffset(14, 0)
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "SAIKI RECHAT  /  NOVOLINE v1"
-TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.TextSize = 13
-TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-TitleLabel.Parent = TopBar
+local BrandBadge = Instance.new("TextLabel")
+BrandBadge.Size = UDim2.fromOffset(92, 26)
+BrandBadge.Position = UDim2.new(0, 7, 0.5, -13)
+BrandBadge.Text = "NOVOLINE"
+BrandBadge.Font = Enum.Font.GothamBold
+BrandBadge.TextSize = 11
+BrandBadge.BorderSizePixel = 0
+BrandBadge.Parent = TopPill
+pillRound(BrandBadge)
 
-local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.fromOffset(28, 28)
-CloseButton.Position = UDim2.new(1, -36, 0.5, -14)
-CloseButton.Text = "×"
-CloseButton.Font = Enum.Font.GothamBold
-CloseButton.TextSize = 18
-CloseButton.AutoButtonColor = false
-CloseButton.Parent = TopBar
-addCorner(CloseButton, 7)
+-- Mode pills inside the top island: Chat | Music | Style
+local PillTabs = Instance.new("Frame")
+PillTabs.Size = UDim2.new(1, -180, 1, -10)
+PillTabs.Position = UDim2.fromOffset(106, 5)
+PillTabs.BackgroundTransparency = 1
+PillTabs.Parent = TopPill
 
--- Left Sidebar Navigation
-local Sidebar = Instance.new("Frame")
-Sidebar.Name = "Sidebar"
-Sidebar.Size = UDim2.new(0, 126, 1, -42)
-Sidebar.Position = UDim2.fromOffset(0, 42)
-Sidebar.BorderSizePixel = 0
-Sidebar.Parent = MainFrame
+local PillTabLayout = Instance.new("UIListLayout")
+PillTabLayout.FillDirection = Enum.FillDirection.Horizontal
+PillTabLayout.Padding = UDim.new(0, 6)
+PillTabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+PillTabLayout.Parent = PillTabs
 
-local SidebarList = Instance.new("UIListLayout")
-SidebarList.Padding = UDim.new(0, 6)
-SidebarList.Parent = Sidebar
+local DeckToggleBtn = Instance.new("TextButton")
+DeckToggleBtn.Size = UDim2.fromOffset(64, 26)
+DeckToggleBtn.Position = UDim2.new(1, -71, 0.5, -13)
+DeckToggleBtn.Text = "HIDE"
+DeckToggleBtn.Font = Enum.Font.GothamBold
+DeckToggleBtn.TextSize = 10
+DeckToggleBtn.AutoButtonColor = false
+DeckToggleBtn.BorderSizePixel = 0
+DeckToggleBtn.Parent = TopPill
+pillRound(DeckToggleBtn)
 
-local SidebarPad = Instance.new("UIPadding")
-SidebarPad.PaddingTop = UDim.new(0, 10)
-SidebarPad.PaddingLeft = UDim.new(0, 10)
-SidebarPad.PaddingRight = UDim.new(0, 10)
-SidebarPad.Parent = Sidebar
+-- ================= NOVOLINE FLOATING DECK =================
+local Deck = Instance.new("Frame")
+Deck.Name = "NovolineDeck"
+Deck.Size = UDim2.fromOffset(560, 340)
+Deck.Position = UDim2.new(0.5, -280, 0, 68)
+Deck.BorderSizePixel = 0
+Deck.ClipsDescendants = true
+Deck.Parent = gui
+round(Deck, 18)
+local deckStroke = hairStroke(Deck, theme.Stroke, theme.StrokeTrans, 1)
 
--- Content Container
-local ContentArea = Instance.new("Frame")
-ContentArea.Name = "ContentArea"
-ContentArea.Size = UDim2.new(1, -126, 1, -42)
-ContentArea.Position = UDim2.fromOffset(126, 42)
-ContentArea.BackgroundTransparency = 1
-ContentArea.Parent = MainFrame
+local DeckHeader = Instance.new("Frame")
+DeckHeader.Size = UDim2.new(1, 0, 0, 38)
+DeckHeader.BackgroundTransparency = 1
+DeckHeader.Parent = Deck
+dragify(DeckHeader, Deck)
 
--- Pages
-local ChatPage = Instance.new("Frame")
-ChatPage.Name = "ChatPage"
-ChatPage.Size = UDim2.fromScale(1, 1)
-ChatPage.BackgroundTransparency = 1
-ChatPage.Visible = true
-ChatPage.Parent = ContentArea
+local DeckTitle = Instance.new("TextLabel")
+DeckTitle.Size = UDim2.new(0.5, -16, 1, 0)
+DeckTitle.Position = UDim2.fromOffset(16, 0)
+DeckTitle.BackgroundTransparency = 1
+DeckTitle.Text = "SAIKIRECHAT  ·  CHAT"
+DeckTitle.Font = Enum.Font.GothamBold
+DeckTitle.TextSize = 11
+DeckTitle.TextXAlignment = Enum.TextXAlignment.Left
+DeckTitle.Parent = DeckHeader
 
-local MusicPage = Instance.new("Frame")
-MusicPage.Name = "MusicPage"
-MusicPage.Size = UDim2.fromScale(1, 1)
-MusicPage.BackgroundTransparency = 1
-MusicPage.Visible = false
-MusicPage.Parent = ContentArea
+local FilterBox = Instance.new("TextBox")
+FilterBox.Size = UDim2.fromOffset(190, 24)
+FilterBox.Position = UDim2.new(1, -204, 0.5, -12)
+FilterBox.Text = ""
+FilterBox.PlaceholderText = "Filter or command..."
+FilterBox.ClearTextOnFocus = false
+FilterBox.Font = Enum.Font.Code
+FilterBox.TextSize = 11
+FilterBox.BorderSizePixel = 0
+FilterBox.Parent = DeckHeader
+pillRound(FilterBox)
+local filterStroke = hairStroke(FilterBox, theme.Stroke, theme.StrokeTrans, 1)
 
-local ThemePage = Instance.new("Frame")
-ThemePage.Name = "ThemePage"
-ThemePage.Size = UDim2.fromScale(1, 1)
-ThemePage.BackgroundTransparency = 1
-ThemePage.Visible = false
-ThemePage.Parent = ContentArea
+local Divider = Instance.new("Frame")
+Divider.Size = UDim2.new(1, -24, 0, 1)
+Divider.Position = UDim2.fromOffset(12, 38)
+Divider.BorderSizePixel = 0
+Divider.Parent = Deck
 
--- ================= CHAT PAGE (GUI Shell + Hook) =================
-local ChatFeed = Instance.new("ScrollingFrame")
-ChatFeed.Name = "ChatFeed"
-ChatFeed.Size = UDim2.new(1, -20, 1, -62)
-ChatFeed.Position = UDim2.fromOffset(10, 10)
-ChatFeed.ScrollBarThickness = 3
-ChatFeed.CanvasSize = UDim2.fromOffset(0, 0)
-ChatFeed.AutomaticCanvasSize = Enum.AutomaticSize.Y
-ChatFeed.BorderSizePixel = 0
-ChatFeed.Parent = ChatPage
-addCorner(ChatFeed, 8)
-local chatFeedStroke = addStroke(ChatFeed, currentTheme.Border, 1)
+local PagesHost = Instance.new("Frame")
+PagesHost.Size = UDim2.new(1, -24, 1, -50)
+PagesHost.Position = UDim2.fromOffset(12, 44)
+PagesHost.BackgroundTransparency = 1
+PagesHost.Parent = Deck
 
-local ChatFeedLayout = Instance.new("UIListLayout")
-ChatFeedLayout.Padding = UDim.new(0, 6)
-ChatFeedLayout.Parent = ChatFeed
+-- --- CHAT DECK VIEW ---
+local ChatView = Instance.new("Frame")
+ChatView.Size = UDim2.fromScale(1, 1)
+ChatView.BackgroundTransparency = 1
+ChatView.Visible = true
+ChatView.Parent = PagesHost
 
-local ChatFeedPad = Instance.new("UIPadding")
-ChatFeedPad.PaddingTop = UDim.new(0, 8)
-ChatFeedPad.PaddingBottom = UDim.new(0, 8)
-ChatFeedPad.PaddingLeft = UDim.new(0, 8)
-ChatFeedPad.PaddingRight = UDim.new(0, 8)
-ChatFeedPad.Parent = ChatFeed
+local MessageStream = Instance.new("ScrollingFrame")
+MessageStream.Size = UDim2.new(1, 0, 1, -46)
+MessageStream.Position = UDim2.fromOffset(0, 0)
+MessageStream.BackgroundTransparency = 1
+MessageStream.ScrollBarThickness = 2
+MessageStream.CanvasSize = UDim2.fromOffset(0, 0)
+MessageStream.AutomaticCanvasSize = Enum.AutomaticSize.Y
+MessageStream.BorderSizePixel = 0
+MessageStream.Parent = ChatView
 
-local ChatInputBar = Instance.new("Frame")
-ChatInputBar.Size = UDim2.new(1, -20, 0, 36)
-ChatInputBar.Position = UDim2.new(0, 10, 1, -44)
-ChatInputBar.BorderSizePixel = 0
-ChatInputBar.Parent = ChatPage
-addCorner(ChatInputBar, 8)
-local chatInputStroke = addStroke(ChatInputBar, currentTheme.Border, 1)
+local StreamList = Instance.new("UIListLayout")
+StreamList.Padding = UDim.new(0, 6)
+StreamList.Parent = MessageStream
 
-local ChatBox = Instance.new("TextBox")
-ChatBox.Size = UDim2.new(1, -78, 1, 0)
-ChatBox.Position = UDim2.fromOffset(10, 0)
-ChatBox.BackgroundTransparency = 1
-ChatBox.PlaceholderText = "Type a message..."
-ChatBox.Text = ""
-ChatBox.ClearTextOnFocus = false
-ChatBox.Font = Enum.Font.GothamMedium
-ChatBox.TextSize = 12
-ChatBox.TextXAlignment = Enum.TextXAlignment.Left
-ChatBox.Parent = ChatInputBar
+local Composer = Instance.new("Frame")
+Composer.Size = UDim2.new(1, 0, 0, 38)
+Composer.Position = UDim2.new(0, 0, 1, -38)
+Composer.BorderSizePixel = 0
+Composer.Parent = ChatView
+pillRound(Composer)
+local composerStroke = hairStroke(Composer, theme.Stroke, theme.StrokeTrans, 1)
 
-local SendBtn = Instance.new("TextButton")
-SendBtn.Size = UDim2.fromOffset(62, 26)
-SendBtn.Position = UDim2.new(1, -68, 0.5, -13)
-SendBtn.Text = "Send"
-SendBtn.Font = Enum.Font.GothamBold
-SendBtn.TextSize = 12
-SendBtn.AutoButtonColor = false
-SendBtn.Parent = ChatInputBar
-addCorner(SendBtn, 6)
+local ComposerInput = Instance.new("TextBox")
+ComposerInput.Size = UDim2.new(1, -86, 1, 0)
+ComposerInput.Position = UDim2.fromOffset(14, 0)
+ComposerInput.BackgroundTransparency = 1
+ComposerInput.Text = ""
+ComposerInput.PlaceholderText = "Message SaikiRechat..."
+ComposerInput.ClearTextOnFocus = false
+ComposerInput.Font = Enum.Font.GothamMedium
+ComposerInput.TextSize = 12
+ComposerInput.TextXAlignment = Enum.TextXAlignment.Left
+ComposerInput.Parent = Composer
 
-local function appendChatBubble(author: string, text: string, tag: string?)
-	local bubble = Instance.new("Frame")
-	bubble.Size = UDim2.new(1, 0, 0, 0)
-	bubble.AutomaticSize = Enum.AutomaticSize.Y
-	bubble.BorderSizePixel = 0
-	bubble.Parent = ChatFeed
-	addCorner(bubble, 6)
+local SendPill = Instance.new("TextButton")
+SendPill.Size = UDim2.fromOffset(68, 26)
+SendPill.Position = UDim2.new(1, -74, 0.5, -13)
+SendPill.Text = "SEND"
+SendPill.Font = Enum.Font.GothamBold
+SendPill.TextSize = 10
+SendPill.AutoButtonColor = false
+SendPill.BorderSizePixel = 0
+SendPill.Parent = Composer
+pillRound(SendPill)
+
+local function pushChatLine(sender: string, msg: string, badge: string?)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, 0, 0, 0)
+	row.AutomaticSize = Enum.AutomaticSize.Y
+	row.BorderSizePixel = 0
+	row.Parent = MessageStream
+	round(row, 12)
+	hairStroke(row, theme.Stroke, 0.92, 1)
 
 	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 6)
-	pad.PaddingBottom = UDim.new(0, 6)
-	pad.PaddingLeft = UDim.new(0, 8)
-	pad.PaddingRight = UDim.new(0, 8)
-	pad.Parent = bubble
+	pad.PaddingTop = UDim.new(0, 7)
+	pad.PaddingBottom = UDim.new(0, 7)
+	pad.PaddingLeft = UDim.new(0, 12)
+	pad.PaddingRight = UDim.new(0, 12)
+	pad.Parent = row
 
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, 0, 0, 0)
-	label.AutomaticSize = Enum.AutomaticSize.Y
-	label.BackgroundTransparency = 1
-	label.TextWrapped = true
-	label.RichText = true
-	label.Font = Enum.Font.GothamMedium
-	label.TextSize = 12
-	label.TextXAlignment = Enum.TextXAlignment.Left
+	local txt = Instance.new("TextLabel")
+	txt.Size = UDim2.new(1, 0, 0, 0)
+	txt.AutomaticSize = Enum.AutomaticSize.Y
+	txt.BackgroundTransparency = 1
+	txt.RichText = true
+	txt.TextWrapped = true
+	txt.Font = Enum.Font.GothamMedium
+	txt.TextSize = 12
+	txt.TextXAlignment = Enum.TextXAlignment.Left
 
-	local tagPart = tag and (" [" .. tag .. "]") or ""
-	label.Text = string.format("<b>%s%s:</b> %s", author, tagPart, text)
-	label.Parent = bubble
+	local badgeStr = badge and string.format(" <font size=\"10\">[%s]</font>", badge) or ""
+	txt.Text = string.format("<b>%s</b>%s  %s", sender, badgeStr, msg)
+	txt.Parent = row
 
-	-- Apply current theme colors to new bubble
-	bubble.BackgroundColor3 = currentTheme.SurfaceElevated
-	label.TextColor3 = currentTheme.TextPrimary
+	row.BackgroundColor3 = theme.CardBg
+	txt.TextColor3 = theme.Text
 
 	task.defer(function()
-		ChatFeed.CanvasPosition = Vector2.new(0, ChatFeed.AbsoluteCanvasSize.Y)
+		MessageStream.CanvasPosition = Vector2.new(0, MessageStream.AbsoluteCanvasSize.Y)
 	end)
 end
 
-local function submitChat()
-	local msg = ChatBox.Text:match("^%s*(.-)%s*$")
-	if not msg or msg == "" then
+local function sendComposer()
+	local clean = ComposerInput.Text:match("^%s*(.-)%s*$")
+	if not clean or clean == "" then
 		return
 	end
-	ChatBox.Text = ""
-
-	if SaikiRechatUI.Chat.OnSendMessage then
-		SaikiRechatUI.Chat.OnSendMessage(msg)
+	ComposerInput.Text = ""
+	if SaikiRechat.Chat.OnSend then
+		SaikiRechat.Chat.OnSend(clean)
 	else
-		appendChatBubble(LocalPlayer.Name, msg, "Local")
+		pushChatLine(LocalPlayer.Name, clean, "Chat")
 	end
 end
 
-SendBtn.MouseButton1Click:Connect(submitChat)
-ChatBox.FocusLost:Connect(function(enterPressed: boolean)
-	if enterPressed then
-		submitChat()
+SendPill.MouseButton1Click:Connect(sendComposer)
+ComposerInput.FocusLost:Connect(function(enter: boolean)
+	if enter then
+		sendComposer()
 	end
 end)
 
-SaikiRechatUI.Chat.AppendMessage = appendChatBubble
-
--- ================= MUSIC PAGE (GUI Shell + Hook) =================
-local MusicCard = Instance.new("Frame")
-MusicCard.Size = UDim2.new(1, -20, 0, 152)
-MusicCard.Position = UDim2.fromOffset(10, 10)
-MusicCard.BorderSizePixel = 0
-MusicCard.Parent = MusicPage
-addCorner(MusicCard, 10)
-local musicCardStroke = addStroke(MusicCard, currentTheme.Border, 1)
-
-local TrackTitle = Instance.new("TextLabel")
-TrackTitle.Size = UDim2.new(1, -24, 0, 24)
-TrackTitle.Position = UDim2.fromOffset(12, 12)
-TrackTitle.BackgroundTransparency = 1
-TrackTitle.Text = "No Track Loaded"
-TrackTitle.Font = Enum.Font.GothamBold
-TrackTitle.TextSize = 15
-TrackTitle.TextXAlignment = Enum.TextXAlignment.Left
-TrackTitle.Parent = MusicCard
-
-local TrackArtist = Instance.new("TextLabel")
-TrackArtist.Size = UDim2.new(1, -24, 0, 18)
-TrackArtist.Position = UDim2.fromOffset(12, 36)
-TrackArtist.BackgroundTransparency = 1
-TrackArtist.Text = "SaikiRechat Music Engine Ready"
-TrackArtist.Font = Enum.Font.GothamMedium
-TrackArtist.TextSize = 12
-TrackArtist.TextXAlignment = Enum.TextXAlignment.Left
-TrackArtist.Parent = MusicCard
-
-local ProgressBg = Instance.new("TextButton")
-ProgressBg.Size = UDim2.new(1, -24, 0, 8)
-ProgressBg.Position = UDim2.fromOffset(12, 68)
-ProgressBg.Text = ""
-ProgressBg.AutoButtonColor = false
-ProgressBg.BorderSizePixel = 0
-ProgressBg.Parent = MusicCard
-addCorner(ProgressBg, 4)
-
-local ProgressFill = Instance.new("Frame")
-ProgressFill.Size = UDim2.new(0, 0, 1, 0)
-ProgressFill.BorderSizePixel = 0
-ProgressFill.Parent = ProgressBg
-addCorner(ProgressFill, 4)
-
-local TimeLabel = Instance.new("TextLabel")
-TimeLabel.Size = UDim2.new(1, -24, 0, 16)
-TimeLabel.Position = UDim2.fromOffset(12, 80)
-TimeLabel.BackgroundTransparency = 1
-TimeLabel.Text = "0:00 / 0:00"
-TimeLabel.Font = Enum.Font.GothamMedium
-TimeLabel.TextSize = 11
-TimeLabel.TextXAlignment = Enum.TextXAlignment.Right
-TimeLabel.Parent = MusicCard
-
-local ControlsRow = Instance.new("Frame")
-ControlsRow.Size = UDim2.new(1, -24, 0, 34)
-ControlsRow.Position = UDim2.fromOffset(12, 104)
-ControlsRow.BackgroundTransparency = 1
-ControlsRow.Parent = MusicCard
-
-local PrevBtn = Instance.new("TextButton")
-PrevBtn.Size = UDim2.new(0.28, -4, 1, 0)
-PrevBtn.Position = UDim2.fromScale(0, 0)
-PrevBtn.Text = "Prev"
-PrevBtn.Font = Enum.Font.GothamBold
-PrevBtn.TextSize = 12
-PrevBtn.AutoButtonColor = false
-PrevBtn.Parent = ControlsRow
-addCorner(PrevBtn, 7)
-
-local PlayBtn = Instance.new("TextButton")
-PlayBtn.Size = UDim2.new(0.44, -8, 1, 0)
-PlayBtn.Position = UDim2.new(0.28, 4, 0, 0)
-PlayBtn.Text = "Play"
-PlayBtn.Font = Enum.Font.GothamBold
-PlayBtn.TextSize = 12
-PlayBtn.AutoButtonColor = false
-PlayBtn.Parent = ControlsRow
-addCorner(PlayBtn, 7)
-
-local NextBtn = Instance.new("TextButton")
-NextBtn.Size = UDim2.new(0.28, -4, 1, 0)
-NextBtn.Position = UDim2.new(0.72, 4, 0, 0)
-NextBtn.Text = "Next"
-NextBtn.Font = Enum.Font.GothamBold
-NextBtn.TextSize = 12
-NextBtn.AutoButtonColor = false
-NextBtn.Parent = ControlsRow
-addCorner(NextBtn, 7)
-
-local isPlayingState = false
-
-PrevBtn.MouseButton1Click:Connect(function()
-	if SaikiRechatUI.Music.OnPrevious then
-		SaikiRechatUI.Music.OnPrevious()
-	end
-end)
-
-PlayBtn.MouseButton1Click:Connect(function()
-	if SaikiRechatUI.Music.OnTogglePlay then
-		SaikiRechatUI.Music.OnTogglePlay()
-	else
-		isPlayingState = not isPlayingState
-		PlayBtn.Text = isPlayingState and "Pause" or "Play"
-	end
-end)
-
-NextBtn.MouseButton1Click:Connect(function()
-	if SaikiRechatUI.Music.OnSkip then
-		SaikiRechatUI.Music.OnSkip()
-	end
-end)
-
-ProgressBg.MouseButton1Click:Connect(function()
-	local mousePos = UserInputService:GetMouseLocation()
-	local relX = math.clamp((mousePos.X - ProgressBg.AbsolutePosition.X) / math.max(ProgressBg.AbsoluteSize.X, 1), 0, 1)
-	ProgressFill.Size = UDim2.new(relX, 0, 1, 0)
-	if SaikiRechatUI.Music.OnSeekRatio then
-		SaikiRechatUI.Music.OnSeekRatio(relX)
-	end
-end)
-
-SaikiRechatUI.Music.SetTrackInfo = function(title: string, artist: string, playing: boolean)
-	TrackTitle.Text = title
-	TrackArtist.Text = artist
-	isPlayingState = playing
-	PlayBtn.Text = playing and "Pause" or "Play"
-end
-
-SaikiRechatUI.Music.SetProgress = function(ratio: number, timeText: string?)
-	local clamped = math.clamp(ratio, 0, 1)
-	ProgressFill.Size = UDim2.new(clamped, 0, 1, 0)
-	if timeText then
-		TimeLabel.Text = timeText
-	end
-end
-
--- ================= THEME PAGE (Novoline GUI Concept Switcher) =================
-local ThemeTitle = Instance.new("TextLabel")
-ThemeTitle.Size = UDim2.new(1, -20, 0, 24)
-ThemeTitle.Position = UDim2.fromOffset(10, 10)
-ThemeTitle.BackgroundTransparency = 1
-ThemeTitle.Text = "GUI Layout & Theme Presets"
-ThemeTitle.Font = Enum.Font.GothamBold
-ThemeTitle.TextSize = 14
-ThemeTitle.TextXAlignment = Enum.TextXAlignment.Left
-ThemeTitle.Parent = ThemePage
-
-local ThemeButtonsContainer = Instance.new("Frame")
-ThemeButtonsContainer.Size = UDim2.new(1, -20, 0, 120)
-ThemeButtonsContainer.Position = UDim2.fromOffset(10, 42)
-ThemeButtonsContainer.BackgroundTransparency = 1
-ThemeButtonsContainer.Parent = ThemePage
-
-local ThemeLayout = Instance.new("UIListLayout")
-ThemeLayout.Padding = UDim.new(0, 8)
-ThemeLayout.Parent = ThemeButtonsContainer
-
--- ================= TAB SWITCHING & THEME ENGINE =================
-local pages = {
-	Chat = ChatPage,
-	Music = MusicPage,
-	Theme = ThemePage,
-}
-local navButtons: { [string]: TextButton } = {}
-
-local function createNavButton(name: string, labelText: string)
-	local btn = Instance.new("TextButton")
-	btn.Name = name .. "Tab"
-	btn.Size = UDim2.new(1, 0, 0, 34)
-	btn.Text = labelText
-	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 12
-	btn.AutoButtonColor = false
-	btn.Parent = Sidebar
-	addCorner(btn, 7)
-
-	btn.MouseButton1Click:Connect(function()
-		for pageKey, pageFrame in pairs(pages) do
-			pageFrame.Visible = (pageKey == name)
-		end
-		for btnKey, navBtn in pairs(navButtons) do
-			local active = (btnKey == name)
-			navBtn.BackgroundColor3 = active and currentTheme.Accent or currentTheme.SurfaceElevated
-			navBtn.TextColor3 = active and Color3.fromRGB(255, 255, 255) or currentTheme.TextSecondary
-		end
-	end)
-
-	navButtons[name] = btn
-end
-
-createNavButton("Chat", "Chat")
-createNavButton("Music", "Music")
-createNavButton("Theme", "GUI Theme")
-
-local function applyTheme(themeName: string)
-	local chosen = Themes[themeName]
-	if not chosen then
-		return
-	end
-	currentThemeName = themeName
-	currentTheme = chosen
-
-	MainFrame.BackgroundColor3 = chosen.Background
-	TopBar.BackgroundColor3 = chosen.Surface
-	Sidebar.BackgroundColor3 = chosen.Surface
-	TitleLabel.TextColor3 = chosen.TextPrimary
-
-	CloseButton.BackgroundColor3 = chosen.SurfaceElevated
-	CloseButton.TextColor3 = chosen.TextPrimary
-
-	ToggleButton.BackgroundColor3 = chosen.Surface
-	ToggleButton.TextColor3 = chosen.Accent
-	toggleStroke.Color = chosen.Border
-	mainStroke.Color = chosen.Border
-
-	ChatFeed.BackgroundColor3 = chosen.Surface
-	chatFeedStroke.Color = chosen.Border
-	ChatInputBar.BackgroundColor3 = chosen.SurfaceElevated
-	chatInputStroke.Color = chosen.Border
-	ChatBox.TextColor3 = chosen.TextPrimary
-	ChatBox.PlaceholderColor3 = chosen.TextSecondary
-	SendBtn.BackgroundColor3 = chosen.Accent
-	SendBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-
-	for _, child in ipairs(ChatFeed:GetChildren()) do
+FilterBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local q = FilterBox.Text:lower()
+	for _, child in ipairs(MessageStream:GetChildren()) do
 		if child:IsA("Frame") then
-			child.BackgroundColor3 = chosen.SurfaceElevated
 			local lbl = child:FindFirstChildOfClass("TextLabel")
 			if lbl then
-				lbl.TextColor3 = chosen.TextPrimary
+				rowVisible = (q == "") or (lbl.Text:lower():find(q, 1, true) ~= nil)
+				child.Visible = rowVisible
+			end
+		end
+	end
+end)
+
+SaikiRechat.Chat.PushMessage = pushChatLine
+
+-- --- MUSIC DECK VIEW ---
+local MusicView = Instance.new("Frame")
+MusicView.Size = UDim2.fromScale(1, 1)
+MusicView.BackgroundTransparency = 1
+MusicView.Visible = false
+MusicView.Parent = PagesHost
+
+local NowPlayingCard = Instance.new("Frame")
+NowPlayingCard.Size = UDim2.new(1, 0, 0, 128)
+NowPlayingCard.BorderSizePixel = 0
+NowPlayingCard.Parent = MusicView
+round(NowPlayingCard, 14)
+local npStroke = hairStroke(NowPlayingCard, theme.Stroke, theme.StrokeTrans, 1)
+
+local npTag = Instance.new("TextLabel")
+npTag.Size = UDim2.new(1, -28, 0, 16)
+npTag.Position = UDim2.fromOffset(14, 12)
+npTag.BackgroundTransparency = 1
+npTag.Text = "NOW PLAYING"
+npTag.Font = Enum.Font.GothamBold
+npTag.TextSize = 10
+npTag.TextXAlignment = Enum.TextXAlignment.Left
+npTag.Parent = NowPlayingCard
+
+local SongLabel = Instance.new("TextLabel")
+SongLabel.Size = UDim2.new(1, -28, 0, 24)
+SongLabel.Position = UDim2.fromOffset(14, 28)
+SongLabel.BackgroundTransparency = 1
+SongLabel.Text = "Standby — SaikiRechat Audio"
+SongLabel.Font = Enum.Font.GothamBold
+SongLabel.TextSize = 16
+SongLabel.TextXAlignment = Enum.TextXAlignment.Left
+SongLabel.Parent = NowPlayingCard
+
+local ArtistLabel = Instance.new("TextLabel")
+ArtistLabel.Size = UDim2.new(1, -28, 0, 18)
+ArtistLabel.Position = UDim2.fromOffset(14, 52)
+ArtistLabel.BackgroundTransparency = 1
+ArtistLabel.Text = "Connect music module to stream tracks"
+ArtistLabel.Font = Enum.Font.GothamMedium
+ArtistLabel.TextSize = 12
+ArtistLabel.TextXAlignment = Enum.TextXAlignment.Left
+ArtistLabel.Parent = NowPlayingCard
+
+local ScrubberTrack = Instance.new("TextButton")
+ScrubberTrack.Size = UDim2.new(1, -28, 0, 6)
+ScrubberTrack.Position = UDim2.fromOffset(14, 84)
+ScrubberTrack.Text = ""
+ScrubberTrack.AutoButtonColor = false
+ScrubberTrack.BorderSizePixel = 0
+ScrubberTrack.Parent = NowPlayingCard
+pillRound(ScrubberTrack)
+
+local ScrubberFill = Instance.new("Frame")
+ScrubberFill.Size = UDim2.new(0, 0, 1, 0)
+ScrubberFill.BorderSizePixel = 0
+ScrubberFill.Parent = ScrubberTrack
+pillRound(ScrubberFill)
+
+local ElapsedLbl = Instance.new("TextLabel")
+ElapsedLbl.Size = UDim2.fromOffset(90, 16)
+ElapsedLbl.Position = UDim2.fromOffset(14, 96)
+ElapsedLbl.BackgroundTransparency = 1
+ElapsedLbl.Text = "0:00"
+ElapsedLbl.Font = Enum.Font.Code
+ElapsedLbl.TextSize = 11
+ElapsedLbl.TextXAlignment = Enum.TextXAlignment.Left
+ElapsedLbl.Parent = NowPlayingCard
+
+local DurationLbl = Instance.new("TextLabel")
+DurationLbl.Size = UDim2.fromOffset(90, 16)
+DurationLbl.Position = UDim2.new(1, -104, 0, 96)
+DurationLbl.BackgroundTransparency = 1
+DurationLbl.Text = "0:00"
+DurationLbl.Font = Enum.Font.Code
+DurationLbl.TextSize = 11
+DurationLbl.TextXAlignment = Enum.TextXAlignment.Right
+DurationLbl.Parent = NowPlayingCard
+
+-- Pill action buttons for music transport
+local TransportRow = Instance.new("Frame")
+TransportRow.Size = UDim2.new(1, 0, 0, 38)
+TransportRow.Position = UDim2.fromOffset(0, 140)
+TransportRow.BackgroundTransparency = 1
+TransportRow.Parent = MusicView
+
+local PrevPill = Instance.new("TextButton")
+PrevPill.Size = UDim2.new(0.26, -6, 1, 0)
+PrevPill.Position = UDim2.fromScale(0, 0)
+PrevPill.Text = "PREV"
+PrevPill.Font = Enum.Font.GothamBold
+PrevPill.TextSize = 11
+PrevPill.AutoButtonColor = false
+PrevPill.BorderSizePixel = 0
+PrevPill.Parent = TransportRow
+pillRound(PrevPill)
+
+local TogglePlayPill = Instance.new("TextButton")
+TogglePlayPill.Size = UDim2.new(0.48, 0, 1, 0)
+TogglePlayPill.Position = UDim2.fromScale(0.26, 0)
+TogglePlayPill.Text = "PLAY"
+TogglePlayPill.Font = Enum.Font.GothamBold
+TogglePlayPill.TextSize = 11
+TogglePlayPill.AutoButtonColor = false
+TogglePlayPill.BorderSizePixel = 0
+TogglePlayPill.Parent = TransportRow
+pillRound(TogglePlayPill)
+
+local NextPill = Instance.new("TextButton")
+NextPill.Size = UDim2.new(0.26, -6, 1, 0)
+NextPill.Position = UDim2.new(0.74, 6, 0, 0)
+NextPill.Text = "NEXT"
+NextPill.Font = Enum.Font.GothamBold
+NextPill.TextSize = 11
+NextPill.AutoButtonColor = false
+NextPill.BorderSizePixel = 0
+NextPill.Parent = TransportRow
+pillRound(NextPill)
+
+local playingFlag = false
+
+PrevPill.MouseButton1Click:Connect(function()
+	if SaikiRechat.Music.OnPrev then
+		SaikiRechat.Music.OnPrev()
+	end
+end)
+
+TogglePlayPill.MouseButton1Click:Connect(function()
+	if SaikiRechat.Music.OnToggle then
+		SaikiRechat.Music.OnToggle()
+	else
+		playingFlag = not playingFlag
+		TogglePlayPill.Text = playingFlag and "PAUSE" or "PLAY"
+	end
+end)
+
+NextPill.MouseButton1Click:Connect(function()
+	if SaikiRechat.Music.OnNext then
+		SaikiRechat.Music.OnNext()
+	end
+end)
+
+ScrubberTrack.MouseButton1Click:Connect(function()
+	local m = UserInputService:GetMouseLocation()
+	local alpha = math.clamp((m.X - ScrubberTrack.AbsolutePosition.X) / math.max(ScrubberTrack.AbsoluteSize.X, 1), 0, 1)
+	ScrubberFill.Size = UDim2.new(alpha, 0, 1, 0)
+	if SaikiRechat.Music.OnSeek then
+		SaikiRechat.Music.OnSeek(alpha)
+	end
+end)
+
+SaikiRechat.Music.SetNowPlaying = function(title: string, artist: string, playing: boolean)
+	SongLabel.Text = title
+	ArtistLabel.Text = artist
+	playingFlag = playing
+	TogglePlayPill.Text = playing and "PAUSE" or "PLAY"
+end
+
+SaikiRechat.Music.SetTimeline = function(alpha: number, elapsed: string, duration: string)
+	ScrubberFill.Size = UDim2.new(math.clamp(alpha, 0, 1), 0, 1, 0)
+	ElapsedLbl.Text = elapsed
+	DurationLbl.Text = duration
+end
+
+-- --- STYLE DECK VIEW (Novoline theme chips) ---
+local StyleView = Instance.new("Frame")
+StyleView.Size = UDim2.fromScale(1, 1)
+StyleView.BackgroundTransparency = 1
+StyleView.Visible = false
+StyleView.Parent = PagesHost
+
+local StyleHeader = Instance.new("TextLabel")
+StyleHeader.Size = UDim2.new(1, 0, 0, 20)
+StyleHeader.BackgroundTransparency = 1
+StyleHeader.Text = "NOVOLINE SURFACE & ACCENT PRESETS"
+StyleHeader.Font = Enum.Font.GothamBold
+StyleHeader.TextSize = 11
+StyleHeader.TextXAlignment = Enum.TextXAlignment.Left
+StyleHeader.Parent = StyleView
+
+local ChipRow = Instance.new("Frame")
+ChipRow.Size = UDim2.new(1, 0, 0, 38)
+ChipRow.Position = UDim2.fromOffset(0, 28)
+ChipRow.BackgroundTransparency = 1
+ChipRow.Parent = StyleView
+
+local ChipLayout = Instance.new("UIListLayout")
+ChipLayout.FillDirection = Enum.FillDirection.Horizontal
+ChipLayout.Padding = UDim.new(0, 8)
+ChipLayout.Parent = ChipRow
+
+-- ================= NAVIGATION & THEME SYNC =================
+local viewMap = {
+	Chat = ChatView,
+	Music = MusicView,
+	Style = StyleView,
+}
+local pillButtons: { [string]: TextButton } = {}
+local currentMode = "Chat"
+
+local function selectMode(modeName: string)
+	currentMode = modeName
+	DeckTitle.Text = "SAIKIRECHAT  ·  " .. modeName:upper()
+	for name, frame in pairs(viewMap) do
+		frame.Visible = (name == modeName)
+	end
+	for name, btn in pairs(pillButtons) do
+		local active = (name == modeName)
+		tween(btn, {
+			BackgroundColor3 = active and theme.AccentSoft or theme.CardBg,
+			TextColor3 = active and theme.Text or theme.Muted,
+		}, 0.14)
+	end
+end
+
+for _, modeName in ipairs({ "Chat", "Music", "Style" }) do
+	local pBtn = Instance.new("TextButton")
+	pBtn.Size = UDim2.fromOffset(66, 26)
+	pBtn.Text = modeName:upper()
+	pBtn.Font = Enum.Font.GothamBold
+	pBtn.TextSize = 10
+	pBtn.AutoButtonColor = false
+	pBtn.BorderSizePixel = 0
+	pBtn.Parent = PillTabs
+	pillRound(pBtn)
+	pBtn.MouseButton1Click:Connect(function()
+		selectMode(modeName)
+	end)
+	pillButtons[modeName] = pBtn
+end
+
+local function applyNovolineTheme(name: string)
+	local nextTheme = NovolineThemes[name]
+	if not nextTheme then
+		return
+	end
+	activeThemeName = name
+	theme = nextTheme
+
+	TopPill.BackgroundColor3 = theme.PillBg
+	topPillStroke.Color = theme.Stroke
+	topPillStroke.Transparency = theme.StrokeTrans
+
+	BrandBadge.BackgroundColor3 = theme.AccentSoft
+	BrandBadge.TextColor3 = theme.Accent
+
+	Deck.BackgroundColor3 = theme.GlassBg
+	Deck.BackgroundTransparency = theme.GlassTrans
+	deckStroke.Color = theme.Stroke
+	deckStroke.Transparency = theme.StrokeTrans
+
+	DeckTitle.TextColor3 = theme.Muted
+	Divider.BackgroundColor3 = theme.Stroke
+	Divider.BackgroundTransparency = theme.StrokeTrans
+
+	FilterBox.BackgroundColor3 = theme.CardBg
+	FilterBox.TextColor3 = theme.Text
+	FilterBox.PlaceholderColor3 = theme.Muted
+	filterStroke.Color = theme.Stroke
+	filterStroke.Transparency = theme.StrokeTrans
+
+	Composer.BackgroundColor3 = theme.CardBg
+	composerStroke.Color = theme.Stroke
+	composerStroke.Transparency = theme.StrokeTrans
+	ComposerInput.TextColor3 = theme.Text
+	ComposerInput.PlaceholderColor3 = theme.Muted
+	SendPill.BackgroundColor3 = theme.Accent
+	SendPill.TextColor3 = Color3.fromRGB(14, 15, 18)
+
+	for _, child in ipairs(MessageStream:GetChildren()) do
+		if child:IsA("Frame") then
+			child.BackgroundColor3 = theme.CardBg
+			local lbl = child:FindFirstChildOfClass("TextLabel")
+			if lbl then
+				lbl.TextColor3 = theme.Text
 			end
 		end
 	end
 
-	MusicCard.BackgroundColor3 = chosen.Surface
-	musicCardStroke.Color = chosen.Border
-	TrackTitle.TextColor3 = chosen.TextPrimary
-	TrackArtist.TextColor3 = chosen.TextSecondary
-	TimeLabel.TextColor3 = chosen.TextSecondary
-	ProgressBg.BackgroundColor3 = chosen.SurfaceElevated
-	ProgressFill.BackgroundColor3 = chosen.Accent
+	NowPlayingCard.BackgroundColor3 = theme.CardBg
+	npStroke.Color = theme.Stroke
+	npStroke.Transparency = theme.StrokeTrans
+	npTag.TextColor3 = theme.Accent
+	SongLabel.TextColor3 = theme.Text
+	ArtistLabel.TextColor3 = theme.Muted
+	ElapsedLbl.TextColor3 = theme.Muted
+	DurationLbl.TextColor3 = theme.Muted
+	ScrubberTrack.BackgroundColor3 = theme.GlassBg
+	ScrubberFill.BackgroundColor3 = theme.Accent
 
-	for _, ctrl in ipairs({ PrevBtn, PlayBtn, NextBtn }) do
-		ctrl.BackgroundColor3 = chosen.SurfaceElevated
-		ctrl.TextColor3 = chosen.TextPrimary
+	for _, ctrl in ipairs({ PrevPill, NextPill }) do
+		ctrl.BackgroundColor3 = theme.CardBg
+		ctrl.TextColor3 = theme.Text
 	end
-	PlayBtn.BackgroundColor3 = chosen.Accent
-	PlayBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	TogglePlayPill.BackgroundColor3 = theme.Accent
+	TogglePlayPill.TextColor3 = Color3.fromRGB(14, 15, 18)
 
-	ThemeTitle.TextColor3 = chosen.TextPrimary
+	StyleHeader.TextColor3 = theme.Muted
+	DeckToggleBtn.BackgroundColor3 = theme.CardBg
+	DeckToggleBtn.TextColor3 = theme.Text
 
-	-- Highlight active nav button
-	local activeTab = "Chat"
-	for pageKey, pageFrame in pairs(pages) do
-		if pageFrame.Visible then
-			activeTab = pageKey
-			break
-		end
+	if Deck.Visible then
+		depthBlur.Size = theme.GlassBlur
 	end
-	for btnKey, navBtn in pairs(navButtons) do
-		local isActive = (btnKey == activeTab)
-		navBtn.BackgroundColor3 = isActive and chosen.Accent or chosen.SurfaceElevated
-		navBtn.TextColor3 = isActive and Color3.fromRGB(255, 255, 255) or chosen.TextSecondary
-	end
+	selectMode(currentMode)
 end
 
-for themeKey in pairs(Themes) do
-	local tBtn = Instance.new("TextButton")
-	tBtn.Size = UDim2.new(1, 0, 0, 32)
-	tBtn.Text = "Theme: " .. themeKey
-	tBtn.Font = Enum.Font.GothamBold
-	tBtn.TextSize = 12
-	tBtn.AutoButtonColor = false
-	tBtn.Parent = ThemeButtonsContainer
-	addCorner(tBtn, 7)
-
-	tBtn.MouseButton1Click:Connect(function()
-		applyTheme(themeKey)
+for presetName in pairs(NovolineThemes) do
+	local chip = Instance.new("TextButton")
+	chip.Size = UDim2.fromOffset(128, 30)
+	chip.Text = presetName
+	chip.Font = Enum.Font.GothamBold
+	chip.TextSize = 11
+	chip.AutoButtonColor = false
+	chip.BorderSizePixel = 0
+	chip.Parent = ChipRow
+	pillRound(chip)
+	hairStroke(chip, theme.Stroke, 0.88, 1)
+	chip.MouseButton1Click:Connect(function()
+		applyNovolineTheme(presetName)
 	end)
 end
 
-SaikiRechatUI.SetTheme = applyTheme
-applyTheme(currentThemeName)
+SaikiRechat.SetTheme = applyNovolineTheme
 
--- Open / Close toggle
-local isOpen = true
-local function setWindowOpen(openState: boolean)
-	isOpen = openState
-	MainFrame.Visible = isOpen
-	if isOpen then
-		MainFrame.Size = UDim2.fromOffset(520, 300)
-		TweenService:Create(MainFrame, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Size = UDim2.fromOffset(520, 340),
-		}):Play()
+local deckVisible = true
+local function setDeckVisible(state: boolean)
+	deckVisible = state
+	DeckToggleBtn.Text = deckVisible and "HIDE" or "SHOW"
+	if deckVisible then
+		Deck.Visible = true
+		Deck.Position = UDim2.new(0.5, -280, 0, 56)
+		tween(Deck, { Position = UDim2.new(0.5, -280, 0, 68), BackgroundTransparency = theme.GlassTrans }, 0.2)
+		tween(depthBlur, { Size = theme.GlassBlur }, 0.2)
+	else
+		tween(Deck, { Position = UDim2.new(0.5, -280, 0, 56), BackgroundTransparency = 1 }, 0.16)
+		tween(depthBlur, { Size = 0 }, 0.16)
+		task.delay(0.17, function()
+			if not deckVisible then
+				Deck.Visible = false
+			end
+		end)
 	end
 end
 
-CloseButton.MouseButton1Click:Connect(function()
-	setWindowOpen(false)
+DeckToggleBtn.MouseButton1Click:Connect(function()
+	setDeckVisible(not deckVisible)
 end)
 
-ToggleButton.MouseButton1Click:Connect(function()
-	setWindowOpen(not isOpen)
-end)
+applyNovolineTheme("Novoline")
+pushChatLine("Novoline", "Pill & glass deck active. Ready for SaikiRechat.", "UI")
 
--- Initial welcome note in chat UI
-appendChatBubble("System", "Novoline GUI v1 initialized. Ready for SaikiRechat chat & music hooks.", "UI")
-
-return SaikiRechatUI
+return SaikiRechat
